@@ -6,7 +6,8 @@ import sys
 
 class S2CNN:
     def __init__(self, ℓ_max, n_side_in, n_side_out, kernel_size, kernel_index,
-        input_filters, output_filters, ω, name, μ = 0., σ = 1.):
+        input_filters, output_filters, ω, name, μ = 0., σ = 1.,
+        input_sphere = None, input_indices = None):
 
         self._COMPLEXX = tf.complex64
         self._FLOATX = tf.float32
@@ -18,10 +19,16 @@ class S2CNN:
 
         self.d = self.get_d()
 
-        self.s = tf.placeholder(dtype = self._COMPLEXX, shape = (None,
-            self.n_pix_in, input_filters))
-        self.indices = tf.placeholder(dtype = tf.int32,
-            shape = (kernel_size**2, 1))
+        if input_sphere is None:
+            self.s = tf.placeholder(dtype = self._COMPLEXX, shape = (None,
+                self.n_pix_in, input_filters))
+        else:
+            self.s = input_sphere
+        if input_indices is None:
+            self.indices = tf.placeholder(dtype = tf.int32,
+                shape = (kernel_size**2, 1))
+        else:
+            self.indices = input_indices
         self.k = self.spherical_weight_kernel(name, input_filters,
             output_filters, μ, σ)
 
