@@ -19,7 +19,7 @@ class S2CNN:
             self.s = tf.placeholder(dtype = self._COMPLEXX, shape = (None,
                 self.n_pix_in, input_filters))
         else:
-            if input_sphere.get_shape().as_list() != [None, self.n_pix_in, input_filters]:
+            if input_sphere.get_shape().as_list()[1:] != [self.n_pix_in, input_filters]:
                 print("Input sphere must have shape [None, hp.nside2npix(n_side_in), input_filters], but has shape " + str(input_sphere.get_shape().as_list()))
                 sys.exit()
             if input_sphere.dtype != self._COMPLEXX:
