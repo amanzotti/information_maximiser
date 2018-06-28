@@ -27,8 +27,8 @@ class S2CNN:
                 sys.exit()
             self.s = input_sphere
         if input_indices is None:
-            self.indices = tf.placeholder(dtype = tf.int32,
-                shape = (kernel_size**2, 1))
+            self.indices = tf.constant(self.get_weight_indices(n_side_in,
+                kernel_size, kernel_index), dtype = tf.int32)
         else:
             if input_indices.get_shape().as_list() != [kernel_size**2, 1]:
                 print("Input indices must have shape [kernel_size**2, 1], but has shape " + str(input_indices.get_shape().as_list()))
