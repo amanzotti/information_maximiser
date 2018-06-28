@@ -15,22 +15,34 @@ class S2CNN:
         self.θ = np.pi / 2.
         self.n_pix_in = hp.nside2npix(n_side_in)
 
-        self.Yℓm, self.Yℓm_conj = self.get_Yℓm(n_side_in)
-
-        self.d = self.get_d()
-
         if input_sphere is None:
             self.s = tf.placeholder(dtype = self._COMPLEXX, shape = (None,
                 self.n_pix_in, input_filters))
         else:
+            if input_sphere.get_shape().as_list() != [None, self.n_pix_in, input_filters]:
+                print("Input sphere must have shape [None, hp.nside2npix(n_side_in), input_filters], but has shape " + str(input_sphere.get_shape().as_list()))
+                sys.exit()
+            if input_sphere.dtype != self._COMPLEXX:
+                print("Input sphere must have type " + str(self._COMPLEXX) + ", but has type " + str(input_sphere.dtype))
+                sys.exit()
             self.s = input_sphere
         if input_indices is None:
             self.indices = tf.placeholder(dtype = tf.int32,
                 shape = (kernel_size**2, 1))
         else:
+            if input_indices.get_shape().as_list() != [kernel_size**2, 1]:
+                print("Input indices must have shape [kernel_size**2, 1], but has shape " + str(input_indices.get_shape().as_list()))
+                sys.exit()
+            if input_indices.dtype != tf.int32:
+                print("Input indices must have type " + str(tf.int32) + ", but has type " + str(input_indices.dtype))
+                sys.exit()
             self.indices = input_indices
         self.k = self.spherical_weight_kernel(name, input_filters,
             output_filters, μ, σ)
+
+        self.Yℓm, self.Yℓm_conj = self.get_Yℓm(n_side_in)
+
+        self.d = self.get_d()
 
         self.i = tf.cast(tf.complex(0., 1.), dtype = self._COMPLEXX)
         self.m = tf.cast(np.arange(-self.ℓ_max, self.ℓ_max + 1),
