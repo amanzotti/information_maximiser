@@ -6,12 +6,22 @@ import sys
 
 class S2CNN:
     def __init__(self, ℓ_max, n_side_in, n_side_out, kernel_size, kernel_index,
-        input_filters, output_filters, ω, name, μ = 0., σ = 1.,
+        input_filters, output_filters, ω, name, kernel_max = None, μ = 0., σ = 1.,
         input_sphere = None, input_indices = None):
 
         self._COMPLEXX = tf.complex64
         self._FLOATX = tf.float32
         self.ℓ_max = ℓ_max
+        if kernel_max is None:
+            self.kernel_max = ℓ_max
+        else:
+            if kernel_max > ℓ_max:
+                print("Kernel bandwidth (kernel_max) must be smaller than ℓ_max but is currently " + str(kernel_max))
+                sys.exit()
+            if kernel_max <= 0:
+                print("Kernel bandwidth (kernel_max) must be bigger than 0 but is currently " + str(kernel_max))
+                sys.exit()
+            self.kernel_max = kernel_max
         self.θ = np.pi / 2.
         self.n_pix_in = hp.nside2npix(n_side_in)
 
@@ -47,7 +57,8 @@ class S2CNN:
         self.i = tf.cast(tf.complex(0., 1.), dtype = self._COMPLEXX)
         self.m = tf.cast(np.arange(-self.ℓ_max, self.ℓ_max + 1),
             dtype = self._COMPLEXX)
-        self.iωmpp = tf.exp(self.i * self.m \
+        self.iωmpp = tf.exp(self.i * tf.cast(np.arange(-self.kernel_max, self.kernel_max + 1),
+            dtype = self._COMPLEXX) \
             * tf.constant(ω, dtype = self._COMPLEXX))
         self.iϕmp, self.iϕEm = self.get_output_angles(n_side_in, kernel_index,
             n_side_out)
@@ -112,7 +123,7 @@ class S2CNN:
             for m in range(ℓ, -ℓ - 1, -1):
                 for mp in range(ℓ, -ℓ - 1, -1):
                     if m >= 0:
-                        if mp == ℓ:
+                        if mp == ℓ :
                             d_arr[ℓ, m + self.ℓ_max, mp + self.ℓ_max] = \
                                 self.d_ℓmℓ(ℓ, m)
                         if m == ℓ and mp > -ℓ:
@@ -151,6 +162,7 @@ class S2CNN:
     def spherical_transform(self, γ, Yℓm, kernel = False):
         if kernel:
             γ = tf.transpose(γ, [1, 2, 0])
+            Yℓm = Yℓm[:, :, self.ℓ_max - self.kernel_max: self.ℓ_max + self.kernel_max + 1]
         else:
             γ = tf.transpose(γ, [0, 2, 1])
         transform = tf.reduce_sum(4. * np.pi / self.n_pix_in \
@@ -161,12 +173,19 @@ class S2CNN:
             return tf.transpose(transform, [0, 2, 3, 1])
 
     def spherical_convolution(self, s_, k_, d, iωmpp, iϕmp, iϕEm):
-        Tmmpmpp = tf.einsum('ijklmn,jmno->iklmo', tf.einsum('ijklm,jln->ijklnm',
-            tf.einsum('ijkl,jkm->ijkml', s_, d), d), k_)
-        Tmmp = tf.einsum('ijklm,l->ijkm', Tmmpmpp, iωmpp)
-        Tm = tf.einsum('ijkl,mk->imjl', Tmmp, iϕmp)
-        return tf.cast(tf.einsum('ijkl,jk->ijl', Tm, iϕEm),
-            dtype = self._FLOATX)
+        k_ωmpp = tf.einsum('ijkl,j->ijkl', k_, iωmpp)
+        dk_ωmp = tf.einsum('ijk,iklm->ijlm', d[:, :, self.ℓ_max - self.kernel_max: self.ℓ_max + self.kernel_max + 1], k_ωmpp)
+        ddk_ωmmp = tf.einsum('ijk,iklm->ijklm', d, dk_ωmp)
+        ϕddk_ωm = tf.einsum('ij,kljmn->iklmn', iϕmp, ddk_ωmmp)
+        ϕEϕddk_ωm = tf.einsum('ij,ikjlm->ikjlm', iϕEm, ϕddk_ωm)
+        T = tf.einsum('ijkl,mjkln->imn',s_, ϕEϕddk_ωm)
+        return tf.cast(T, dtype = self._FLOATX)
+        #Tmmpmpp = tf.einsum('ijklmn,jmno->iklmo', tf.einsum('ijklm,jln->ijklnm',
+        #    tf.einsum('ijkl,jkm->ijkml', s_, d), d), k_)
+        #Tmmp = tf.einsum('ijklm,l->ijkm', Tmmpmpp, iωmpp)
+        #Tm = tf.einsum('ijkl,mk->imjl', Tmmp, iϕmp)
+        #return tf.cast(tf.einsum('ijkl,jk->ijl', Tm, iϕEm),
+        #    dtype = self._FLOATX)
 
     def get_weight_indices(self, n_side_in, kernel_size, kernel_index):
         weight_indices = np.array([kernel_index])
@@ -187,17 +206,20 @@ class S2CNN:
                     initial_index = final_index
         return np.reshape(weight_indices, (kernel_size**2, 1))
 
-    def get_aℓm_Cℓ(self, γ):
+    def get_aℓm_Cℓ(self, γ, kernel_max = None):
         aℓm = np.zeros((self.ℓ_max, self.ℓ_max, 2))
         Cℓ = np.sum(γ * np.conj(γ), axis = 1) / (2 * np.arange(self.ℓ_max + 1) \
             + 1)
+        if kernel_max is None:
+            kernel_max = self.ℓ_max
         for ℓ in range(self.ℓ_max):
+            if kernel_max is None:
+                up_to = ℓ
             if ℓ > 0:
-                aℓm[ℓ, :ℓ, 0] = np.real(γ[ℓ, -ℓ + self.ℓ_max: self.ℓ_max])
-                aℓm[:ℓ, ℓ, 0] = np.real(γ[ℓ, self.ℓ_max + 1: self.ℓ_max + ℓ \
-                    + 1])
-                aℓm[ℓ, :ℓ, 1] = np.imag(γ[ℓ, -ℓ + self.ℓ_max: self.ℓ_max])
-                aℓm[:ℓ, ℓ, 1] = np.imag(γ[ℓ, self.ℓ_max: self.ℓ_max + ℓ])
-            aℓm[ℓ, ℓ, 0] = np.real(γ[ℓ, self.ℓ_max])
-            aℓm[ℓ, ℓ, 1] = np.imag(γ[ℓ, self.ℓ_max])
+                aℓm[ℓ, max(0, ℓ - kernel_max):ℓ, 0] = np.real(γ[ℓ, max(-ℓ, -kernel_max) + kernel_max: kernel_max])
+                aℓm[max(0, ℓ - kernel_max):ℓ, ℓ, 0] = np.real(γ[ℓ, kernel_max + 1: kernel_max + min(ℓ, kernel_max) + 1])
+                aℓm[ℓ, max(0, ℓ - kernel_max):ℓ, 1] = np.imag(γ[ℓ, max(-ℓ, -kernel_max) + kernel_max: kernel_max])
+                aℓm[max(0, ℓ - kernel_max):ℓ, ℓ, 1] = np.imag(γ[ℓ, kernel_max + 1: kernel_max + min(ℓ, kernel_max) + 1])
+            aℓm[ℓ, ℓ, 0] = np.real(γ[ℓ, kernel_max])
+            aℓm[ℓ, ℓ, 1] = np.imag(γ[ℓ, kernel_max])
         return aℓm, Cℓ

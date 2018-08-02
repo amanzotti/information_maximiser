@@ -286,14 +286,14 @@ class utils():
         # i                            int        - counter for each dimension of input shape
         #______________________________________________________________
         key = 'input shape'
-        value = u.isint_or_list([params, key], optional = 'if using a list the entries must be 3 positive integers.')
+        value = u.isint_or_list([params, key], optional = 'if using a list the entries must be 3 or 4 positive integers.')
         if type(value) == int:
             value = [u.positive_integer([params, key])]
         else:
-            if len(value) != 3:
-                print(key + ' must be a list of 3 positive integers. the length of the list is ' + str(len(value)) + '.')
+            if len(value) < 3 or len(value) > 4:
+                print(key + ' must be a list of 3 or 4 positive integers. the length of the list is ' + str(len(value)) + '.')
                 sys.exit()
-            for i in range(3):
+            for i in range(len(value)):
                 value[i] = u.positive_integer(value[i], optional = 'the problem is at element ' + str(i) + '.', key = key)
         return value
 
@@ -468,14 +468,15 @@ class utils():
                         if type(inner_value[j]) != list:
                             print('element ' + str(j) + ' of hidden layer ' + str(i + 1) + ' must be a list. provided type is ' + str(type(inner_value[j])) + '.')
                             sys.exit()
-                        if len(inner_value[j]) != 2:
+                        if len(inner_value[j]) < 2 or len(inner_value[j]) > 3:
                             if j == 1:
-                                print('element 1 of hidden layer ' + str(i + 1) + ' list must be a list with two positive integers which describe the shape of the x and y kernel in the convolution. the provided length is ' + str(len(inner_value[j])) + '.')
+                                print('element 1 of hidden layer ' + str(i + 1) + ' list must be a list with two or three positive integers for 2D or 3D convolutions which describe the shape of the x and y kernel in the convolution. the provided length is ' + str(len(inner_value[j])) + '.')
                                 sys.exit()
                             if j == 2:
-                                print('element 2 of hidden layer ' + str(i + 1) + 'list must be a list with two positive integers which describe the strides in the x and y direction in the convolution. the provided length is ' + str(len(inner_value[j])) + '.')
+
+                                print('element 2 of hidden layer ' + str(i + 1) + 'list must be a list with two or three positive integers for 2D or 3D convolutions which describe the strides in the x and y direction in the convolution. the provided length is ' + str(len(inner_value[j])) + '.')
                                 sys.exit()
-                        for k in range(2):
+                        for k in range(len(inner_value[j])):
                             inner_value[j][k] = u.positive_integer(inner_value[j][k], optional = 'the problem is at element ' + str(k) + ' of element ' + str(j) + ' of hidden layer ' + str(i + 1) + '.', key = 'hidden layer')
                     else:
                         if type(inner_value[j]) != str:
