@@ -17,13 +17,16 @@ class utils():
         #   differentiation fraction    int       - fraction of the total number of simulations to use for derivative
         #   prebuild                    bool      - True to allow IMNN to build the network
         #   number of summaries         int       - number of outputs from the network
-        #   input shape                 int/list  - number of inputs (int) or shape of input (list)
+        #   input shape                 list      - number of inputs (int) or shape of input (list)
+        #   calculate MLE               bool      - True to calculate the maximum likelihood estimate
+        #   preload data                dict/None - data to preload as a TensorFlow constant
+        #   save file                   str/None  - path and file name to save (or load) data
         #______________________________________________________________
         # VARIABLES
         # necessary_parameters          list      - list of necessary parameters
         # key                           str       - key value to check
         #______________________________________________________________
-        necessary_parameters = ['verbose', 'number of simulations', 'number of parameters', 'differentiation fraction', 'prebuild', 'input shape', 'number of summaries']
+        necessary_parameters = ['verbose', 'number of simulations', 'fiducial θ', 'derivative denominator', 'differentiation fraction', 'prebuild', 'input shape', 'number of summaries', 'calculate MLE', 'preload data', 'save file']
         for key in necessary_parameters:
             if key not in params.keys():
                 print(key + ' not found in parameter dictionary.')
@@ -166,6 +169,8 @@ class utils():
         # CHECKS FOR POSITIVE INTEGER
         #______________________________________________________________
         # CALLED FROM (DEFINED IN utils.py)
+        # positive_divisible(dict, str, str)
+        #                              int        - checks quantity is divisible by another quantity and output is positive integer
         # inputs(dict)                 int/list   - returns the input shape as list or size as int
         # hidden_layers(dict, class)   list       - returns the network architecture as a list
         #______________________________________________________________
@@ -234,11 +239,36 @@ class utils():
             sys.exit()
         return value
 
+    def islist(u, value, optional = "", key = ""):
+        # CHECKS FOR LIST
+        #______________________________________________________________
+        # CALLED FROM (DEFINED IN utils.py)
+        # inputs(dict)                 list       - returns the input shape
+        #______________________________________________________________
+        # RETURNS
+        # list
+        # returns list if input is a list
+        #______________________________________________________________
+        # INPUTS
+        # value                        list/other - list with parameter and key to unpack or
+        #                                           a value to pass forward
+        # optional            optional str        - normally a string to use to output error warning
+        # key                 optional str        - string to use to indicate key of value
+        #______________________________________________________________
+        # FUNCTIONS
+        # get_params(list/other, str/other)
+        #                             other       - unpacks dictionary or passes value forward
+        #______________________________________________________________
+        value, key = u.get_params(value, key)
+        if type(value) != list:
+            print(key + ' must be a list. provided type is a ' + str(type(value)) + '. ' + optional)
+            sys.exit()
+        return value
+
     def isint_or_list(u, value, optional = '', key = ''):
         # CHECKS FOR INTEGER OR LIST
         #______________________________________________________________
         # CALLED FROM (DEFINED IN utils.py)
-        # inputs(dict)                 int/list   - returns the input shape as list or size as int
         # hidden_layers(dict, class)   list       - returns the network architecture as a list
         #______________________________________________________________
         # RETURNS
@@ -261,6 +291,35 @@ class utils():
                 print(key + ' must be a integer or list. provided type is a ' + str(type(value)) + '. ' + optional)
                 sys.exit()
         return value
+
+    def positive_divisible(u, params, key, check, check_key):
+        # CHECKS THAT INPUT IS INTEGER DIVISIBLE AND POSITIVE DEFINITE
+        #______________________________________________________________
+        # CALLED FROM (DEFINED IN IMNN.py)
+        # __init__(dict)                          - initialises IMNN
+        #______________________________________________________________
+        # RETURNS
+        # int
+        # returns integer for the batch size or the batch size for derivatives
+        #______________________________________________________________
+        # INPUTS
+        # params                       dict       - dictionary of parameters
+        # key                          str        - denominator value
+        # check                        int        - numerator value
+        # check_key                    str        - numerator key
+        #______________________________________________________________
+        # FUNCTIONS (DEFINED IN utils.py)
+        # positive_integer(int, optional str, optional str)
+        #                              int        - returns an integer if input is positive integer
+        #______________________________________________________________
+        # VARIABLES
+        #______________________________________________________________
+        if float(check // params[key]) != check / params[key]:
+            print(check_key + " / " + key + " is not an integer")
+            sys.exit()
+        else:
+            u.positive_integer(check // params[key], key = check_key + " / " + key)
+        return check // params[key]
 
     def inputs(u, params):
         # CHECKS SHAPE OR SIZE OF INPUT
@@ -286,17 +345,136 @@ class utils():
         # i                            int        - counter for each dimension of input shape
         #______________________________________________________________
         key = 'input shape'
-        value = u.isint_or_list([params, key], optional = 'if using a list the entries must be 3 or 4 positive integers.')
-        if type(value) == int:
-            value = [u.positive_integer([params, key])]
+        value = u.islist([params, key], optional = 'the list must contain 1, 3 or 4 positive integers.')
+        if len(value) == 1:
+            value[0] = u.positive_integer(value[0], key = key)
         else:
             if len(value) < 3 or len(value) > 4:
-                print(key + ' must be a list of 3 or 4 positive integers. the length of the list is ' + str(len(value)) + '.')
+                print(key + ' must be a list of 1, 3 or 4 positive integers. the length of the list is ' + str(len(value)) + '.')
                 sys.exit()
             for i in range(len(value)):
                 value[i] = u.positive_integer(value[i], optional = 'the problem is at element ' + str(i) + '.', key = key)
         return value
 
+<<<<<<< HEAD
+=======
+    def check_preloaded(u, params, n):
+        # CHECKS SHAPE OF DATA TO BE PRELOADED OR RETURNS NONE IF NOT PRELOADING
+        #______________________________________________________________
+        # CALLED FROM (DEFINED IN IMNN.py)
+        # __init__(dict)                          - initialises IMNN
+        #______________________________________________________________
+        # RETURNS
+        # dict/None
+        # returns the data to be preloaded or None if not preloading
+        #______________________________________________________________
+        # INPUTS
+        # params                       dict       - dictionary of parameters
+        # n_inputs                   n int        - shape of input
+        # n_params                   n int        - number of parameters in model
+        #______________________________________________________________
+        # VARIABLES
+        # inputs                       list       - list form of n.inputs for checking shape
+        #______________________________________________________________
+        if params['preload data'] is None:
+            print("Not preloading data as TensorFlow constant")
+            return None
+        else:
+            if type(params['preload data']) != dict:
+                print("preload data must be a dictionary containing the central values and the derivatives for training but instead is type" + str(type(params["preload data"])))
+                sys.exit()
+            else:
+                if params['preload data']['x_central'].shape[1:] != tuple(n.inputs):
+                    print("The central values of the training data must have the same shape as the input (" + str(n.inputs) + "), but has shape " + str(params['preload data']['x_central'].shape[1:]))
+                    sys.exit()
+                if type(n.inputs) == int:
+                    inputs = [n.inputs]
+                else:
+                    inputs = n.inputs
+                if params['preload data']['x_m'].shape[1:] != tuple([n.n_params] + inputs):
+                    print("The lower values of the training data must have the same shape as the input (" + str([n.n_params] + inputs) + "), but has shape " + str(params['preload data']['x_m'].shape[1:]))
+                    sys.exit()
+                if params['preload data']['x_p'].shape[1:] != tuple([n.n_params] + inputs):
+                    print("The upper values of the training data must have the same shape as the input (" + str([n.n_params] + inputs) + "), but has shape " + str(params['preload data']['x_p'].shape[1:]))
+                    sys.exit()
+        return params['preload data']
+
+    def check_fiducial(u, params):
+        # CHECKS FIDUCIAL PARAMETERS ARE IN AN ARRAY
+        #______________________________________________________________
+        # RETURNS
+        # array, int
+        # returns the fiducial parameters and the number of parameters
+        #______________________________________________________________
+        # INPUTS
+        # params                       dict       - dictionary of parameters
+        #______________________________________________________________
+        # VARIABLES
+        # value                        array      - array containing the fiducial parameter values
+        #______________________________________________________________
+        value = params['fiducial θ']
+        if type(value) != np.ndarray:
+            print("fiducial θ must be an 1D array containing the fiducial parameter values. current type is " + str(type(value)))
+            sys.exit()
+        if len(value.shape) > 1:
+            print("fiducial θ must be an 1D array containing the fiducial parameter values. the current shape is " + str(value.shape))
+            sys.exit()
+        return value, value.shape[0]
+
+    def check_derivative(u, params, n):
+        # CHECKS DERIVATIVE DENOMINATORS ARE IN AN ARRAY
+        #______________________________________________________________
+        # RETURNS
+        # array
+        # returns the denominator for the numerical derivative
+        #______________________________________________________________
+        # INPUTS
+        # params                       dict       - dictionary of parameters
+        # fiducial_θ                 n array      - array of fiducial parameters
+        #______________________________________________________________
+        # VARIABLES
+        # value                        array      - array containing the fiducial parameter values
+        #______________________________________________________________
+        value = params['derivative denominator']
+        if type(value) != np.ndarray:
+            print("derivative denominator must be an 1D array containing the derivative denominator for each parameter. current type is " + str(type(value)))
+            sys.exit()
+        if value.shape != n.fiducial_θ.shape:
+            print("derivative denominator must have the same shape as fiducial θ. the current shape is " + str(value.shape) + " and the shape of fiducial θ is " + str(n.fiducial_θ.shape))
+            sys.exit()
+        return value
+
+    def check_save_file(u, value, optional = '', key = ''):
+        # CHECKS FOR BOOLEAN INPUT
+        #______________________________________________________________
+        # CALLED FROM (DEFINED IN IMNN.py)
+        # __init__(dict)                          - initialises IMNN
+        #______________________________________________________________
+        # RETURNS
+        # bool
+        # returns boolean if input is boolean
+        #______________________________________________________________
+        # INPUTS
+        # value                        list/other - list with parameter and key to unpack or
+        #                                           a value to pass forward
+        # optional            optional str        - normally a string to use to output error warning
+        # key                 optional str        - string to use to indicate key of value
+        #______________________________________________________________
+        # FUNCTIONS
+        # get_params(list/other, str/other)
+        #                             other       - unpacks dictionary or passes value forward
+        #______________________________________________________________
+        if value[1] in value[0].keys():
+            if type(value[0][value[1]]) != str:
+                print('to save the model "save file" must be a string. provided type is a ' + str(type(value[0][value[1]])) + '.')
+                return None
+            print("saving model as " + str(value[0][value[1]] + ".meta"))
+            return value[0][value[1]]
+        else:
+            print('model not being saved')
+            return None
+
+>>>>>>> ab0578c071ec6aa35ca0de1ec1e31f544b64ce39
     def number_of_derivative_simulations(u, params, n):
         # CALCULATES NUMBER OF SIMULATIONS TO USE FOR NUMERICAL DERIVATIVE (PER COMBINATION)
         #______________________________________________________________
@@ -500,7 +678,7 @@ class utils():
         # list
         # returns a list of None for each unset shared network parameter
         #______________________________________________________________
-        return [None for i in range(11)]
+        return [None for i in range(22)]
 
     def to_prebuild(u, network):
         # INITIALISES ALL SHARED NETWORK PARAMETERS TO NONE
@@ -514,51 +692,6 @@ class utils():
         if network is None:
             print('network architecture needs to be prebuilt')
             sys.exit()
-
-    def check_data(u, n, data, size, test = False):
-        # CHECKS DATA IS CORRECT SHAPE AND WHETHER TEST DATA IS USED
-        #______________________________________________________________
-        # CALLED FROM (DEFINED IN IMNN.py)
-        # train(list, int, int, int, float, array, optional list)
-        #                              list/list, list
-        #                                         - trains the information maximising neural network
-        #______________________________________________________________
-        # RETURNS
-        # bool
-        # True if test_data is correct shape to use for testing
-        #______________________________________________________________
-        # INPUTS
-        # data                          list      - simulations to use for training or testing the network
-        # size                          int       - number of combinations of data to use
-        # test                 optional bool      - True if checking test data
-        # n_s                         n int       - number of simulations to use
-        #______________________________________________________________
-        if test:
-            key = 'test data'
-            if data is None:
-                return False
-        else:
-            key = 'training data'
-        if type(data) != list:
-            print(key + ' is not a list. provided ' + key + ' is ' + str(type(data)) + '.')
-            sys.exit()
-        if len(data) != 3:
-            print(key + ' needs to be a list with element 1 the fiducial data, element 2 the lower parameter simulations and element 3 the upper parameter simulations. current list length is ' + str(len(data)) + '.')
-            sys.exit()
-        for i in range(3):
-            if type(data[i]) != np.ndarray:
-                print('element ' + str(i) + ' of ' + key + ' must be a numpy array. current type is ' + str(type(data[i])) + '.')
-                sys.exit()
-            if i == 0:
-                if data[i].shape != tuple([size * n.n_s] + n.inputs):
-                    print('element 0 of ' + key + ' must have the shape ' + str(tuple([size * n.n_s] + n.inputs)) + ', but currently has the shape ' + str(data[i].shape) + '.')
-                    sys.exit()
-            else:
-                if data[i].shape != tuple([size * n.n_p, n.n_params] + n.inputs):
-                    print('element ' + str(i) + ' of ' + key + ' must have the shape ' + str(tuple([size * n.n_p, n.n_params] + n.inputs)) + ', but currently has the shape ' + str(data[i].shape) + '.')
-                    sys.exit()
-        if test:
-            return True
 
     def to_continue(u, samples):
         # CHECKS LIST OF NECESSARY PMC COMPONENTS TO SEE WHETHER PMC CAN CONTINUE
@@ -581,14 +714,16 @@ class utils():
             return False
         else:
             if type(samples) == list:
-                if len(samples) == 6:
+                if len(samples) == 7:
                     if type(samples[0]) == np.ndarray:
                         if type(samples[1]) == np.ndarray:
                             if type(samples[2]) == np.ndarray:
                                 if type(samples[3]) == np.ndarray:
                                     if type(samples[4]) == np.ndarray:
                                         u.positive_integer(samples[5], key = 'element 5 of samples', optional = 'this should be the total number of draws so far.')
-                                        return True
+                                        if type(samples[6]) == np.ndarray:
+                                            return True
+                                        print('element 6 of samples should be an array of the Fisher information matrix. current type is ' + str(type(samples[6])) + '.')
                                     print('element 4 of samples should be an array of the sample weights. current type is ' + str(type(samples[4])) + '.')
                                     sys.exit()
                                 print('element 3 of samples should be an array of the summaries of the current simulations. current type is ' + str(type(samples[3])) + '.')
