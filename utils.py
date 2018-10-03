@@ -356,8 +356,6 @@ class utils():
                 value[i] = u.positive_integer(value[i], optional = 'the problem is at element ' + str(i) + '.', key = key)
         return value
 
-<<<<<<< HEAD
-=======
     def check_preloaded(u, params, n):
         # CHECKS SHAPE OF DATA TO BE PRELOADED OR RETURNS NONE IF NOT PRELOADING
         #______________________________________________________________
@@ -474,7 +472,6 @@ class utils():
             print('model not being saved')
             return None
 
->>>>>>> ab0578c071ec6aa35ca0de1ec1e31f544b64ce39
     def number_of_derivative_simulations(u, params, n):
         # CALCULATES NUMBER OF SIMULATIONS TO USE FOR NUMERICAL DERIVATIVE (PER COMBINATION)
         #______________________________________________________________
@@ -651,7 +648,6 @@ class utils():
                                 print('element 1 of hidden layer ' + str(i + 1) + ' list must be a list with two or three positive integers for 2D or 3D convolutions which describe the shape of the x and y kernel in the convolution. the provided length is ' + str(len(inner_value[j])) + '.')
                                 sys.exit()
                             if j == 2:
-
                                 print('element 2 of hidden layer ' + str(i + 1) + 'list must be a list with two or three positive integers for 2D or 3D convolutions which describe the strides in the x and y direction in the convolution. the provided length is ' + str(len(inner_value[j])) + '.')
                                 sys.exit()
                         for k in range(len(inner_value[j])):
@@ -678,7 +674,7 @@ class utils():
         # list
         # returns a list of None for each unset shared network parameter
         #______________________________________________________________
-        return [None for i in range(22)]
+        return [None for i in range(29)]
 
     def to_prebuild(u, network):
         # INITIALISES ALL SHARED NETWORK PARAMETERS TO NONE
